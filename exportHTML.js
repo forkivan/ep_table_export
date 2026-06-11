@@ -3,6 +3,7 @@ const Changeset = require('ep_etherpad-lite/static/js/Changeset');
 
 // Module-level: track which table (tblId) is currently open across sequential line calls
 let _activeTblId = null;
+let _justClosedTable = false;
 
 function _getTbljson(attribLine, apool) {
   if (!attribLine) return null;
@@ -29,10 +30,16 @@ exports.getLineHTMLForExport = (hook, context) => {
   const meta = _getTbljson(context.attribLine, context.apool);
 
   if (!meta) {
-    // Non-table line: close any open table first
     if (_activeTblId) {
-      context.lineContent = `</tbody></table>` + context.lineContent;
+      // Close open table, then skip this line if it's just an empty <br>
+      context.lineContent = '</tbody></table>' + context.lineContent;
       _activeTblId = null;
+      _justClosedTable = true;
+    } else if (_justClosedTable && (context.lineContent === '<br>' || context.lineContent === '')) {
+      // Skip empty lines right after a table
+      context.lineContent = '';
+    } else {
+      _justClosedTable = false;
     }
     return;
   }
@@ -46,6 +53,7 @@ exports.getLineHTMLForExport = (hook, context) => {
     // Close previous table if any, open new one
     const closeTag = _activeTblId ? '</tbody></table>' : '';
     _activeTblId = tblId;
+    _justClosedTable = false;
 
     let colgroup = '';
     if (columnWidths && columnWidths.length) {
