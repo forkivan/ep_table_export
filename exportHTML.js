@@ -27,7 +27,7 @@ function _escapeHtml(str) {
 
 exports.getLineHTMLForExport = (hook, context) => {
   const meta = _getTbljson(context.attribLine, context.apool);
-  const isEmpty = context.lineContent === '<br>' || context.lineContent === '';
+  const isEmpty = !context.text || !context.text.trim();
 
   if (!meta) {
     if (_activeTblId) {
@@ -54,6 +54,23 @@ exports.getLineHTMLForExport = (hook, context) => {
 
   const { tblId, columnWidths } = meta;
   const cells = (context.text || '').split('␟');
+
+  // Skip empty table rows (placeholder rows with no content)
+  if (cells.every((c) => !c.trim())) {
+    if (tblId !== _activeTblId) {
+      // Even if empty, we still need to open the table so subsequent rows attach to it
+      _activeTblId = tblId;
+      let colgroup = '';
+      if (columnWidths && columnWidths.length) {
+        colgroup = '<colgroup>' + columnWidths.map((w) => `<col style="width:${w}%">`).join('') + '</colgroup>';
+      }
+      context.lineContent = `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%">${colgroup}<tbody>`;
+    } else {
+      context.lineContent = '';
+    }
+    return;
+  }
+
   const tds = cells.map((cell) => `<td>${_escapeHtml(cell)}</td>`).join('');
   const rowHtml = `<tr>${tds}</tr>`;
 

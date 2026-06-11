@@ -1,7 +1,7 @@
 {
   "name": "ep_table_export",
   "description": "HTML and DOCX export support for ep_data_tables — renders tables as proper <table> HTML in Etherpad exports.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": {
     "name": "Ivan Forkaliuk",
     "url": "https://github.com/forkivan"
