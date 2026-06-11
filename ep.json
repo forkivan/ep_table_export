@@ -1,0 +1,11 @@
+{
+  "parts": [
+    {
+      "name": "main",
+      "hooks": {
+        "getLineHTMLForExport": "ep_table_export/exportHTML",
+        "stylesForExport": "ep_table_export/exportHTML"
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "ep_table_export",
+  "description": "HTML and DOCX export support for ep_data_tables — renders tables as proper <table> HTML in Etherpad exports.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Ivan Forkaliuk",
+    "url": "https://github.com/forkivan"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "etherpad",
+    "plugin",
+    "ep_plugin",
+    "ep",
+    "tables",
+    "export",
+    "docx",
+    "html"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forkivan/ep_table_export.git"
+  },
+  "bugs": {
+    "url": "https://github.com/forkivan/ep_table_export/issues"
+  },
+  "homepage": "https://github.com/forkivan/ep_table_export",
+  "peerDependencies": {
+    "ep_etherpad-lite": ">=1.8.6",
+    "ep_data_tables": "*"
+  },
+  "engines": {
+    "node": ">=11.14.0"
+  }
+}
