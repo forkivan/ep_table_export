@@ -1,8 +1,18 @@
 'use strict';
 const Changeset = require('ep_etherpad-lite/static/js/Changeset');
 
+// Etherpad appends a <br> after every line's content during export. For table
+// rows that <br> lands between </tr> and <tr> inside the <table>, which is
+// invalid HTML — the browser "foster parents" it OUT, in front of the table,
+// producing a big empty gap between the heading and the table.
+//
+// Fix: end every table line with an open HTML comment "<!--" and start the next
+// table line (or the table-closing line) with "-->". The <br> that Etherpad
+// inserts between them is swallowed inside "<!--<br>-->": invisible, valid
+// anywhere, never foster-parented. The visible rows stay clean <tr><td>..</td></tr>.
+
 let _activeTblId = null;
-let _pendingBreaks = 0; // empty lines buffered (set to '') waiting to see what comes next
+let _commentOpen = false;
 
 function _getTbljson(attribLine, apool) {
   if (!attribLine) return null;
@@ -25,68 +35,53 @@ function _escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+function _tableOpen(columnWidths) {
+  let colgroup = '';
+  if (columnWidths && columnWidths.length) {
+    colgroup = '<colgroup>' + columnWidths.map((w) => `<col style="width:${w}%">`).join('') + '</colgroup>';
+  }
+  return `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%">${colgroup}<tbody>`;
+}
+
 exports.getLineHTMLForExport = (hook, context) => {
   const meta = _getTbljson(context.attribLine, context.apool);
-  const isEmpty = !context.text || !context.text.trim();
 
+  // Non-table line: close the table if one is open, then behave normally.
   if (!meta) {
     if (_activeTblId) {
-      // Close open table; drop trailing empty line if this line is blank
-      context.lineContent = isEmpty ? '</tbody></table>' : '</tbody></table>' + context.lineContent;
+      const prefix = _commentOpen ? '-->' : '';
+      const isEmpty = !context.text || !context.text.trim();
+      const original = isEmpty ? '' : (context.lineContent || '');
+      context.lineContent = `${prefix}</tbody></table>${original}`;
       _activeTblId = null;
-      _pendingBreaks = 0;
-    } else if (isEmpty) {
-      // Buffer silently — we'll decide later whether to emit or discard
-      context.lineContent = '';
-      _pendingBreaks++;
-    } else {
-      // Real content: flush buffered empty lines before it
-      if (_pendingBreaks > 0) {
-        context.lineContent = '<br>'.repeat(_pendingBreaks) + context.lineContent;
-      }
-      _pendingBreaks = 0;
+      _commentOpen = false;
     }
     return;
   }
-
-  // Table row: discard any buffered empty lines (they were blank lines before this table)
-  _pendingBreaks = 0;
 
   const { tblId, columnWidths } = meta;
   const cells = (context.text || '').split('␟');
+  const isEmptyRow = cells.every((c) => !c.trim());
 
-  // Skip empty table rows (placeholder rows with no content)
-  if (cells.every((c) => !c.trim())) {
-    if (tblId !== _activeTblId) {
-      // Even if empty, we still need to open the table so subsequent rows attach to it
-      _activeTblId = tblId;
-      let colgroup = '';
-      if (columnWidths && columnWidths.length) {
-        colgroup = '<colgroup>' + columnWidths.map((w) => `<col style="width:${w}%">`).join('') + '</colgroup>';
-      }
-      context.lineContent = `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%">${colgroup}<tbody>`;
-    } else {
-      context.lineContent = '';
-    }
-    return;
-  }
-
-  const tds = cells.map((cell) => `<td>${_escapeHtml(cell)}</td>`).join('');
-  const rowHtml = `<tr>${tds}</tr>`;
+  const prefix = _commentOpen ? '-->' : '';
+  let visible = '';
 
   if (tblId !== _activeTblId) {
-    const closeTag = _activeTblId ? '</tbody></table>' : '';
+    // Close a previous table if one table is immediately followed by another.
+    if (_activeTblId) visible += '</tbody></table>';
+    visible += _tableOpen(columnWidths);
     _activeTblId = tblId;
-
-    let colgroup = '';
-    if (columnWidths && columnWidths.length) {
-      colgroup = '<colgroup>' + columnWidths.map((w) => `<col style="width:${w}%">`).join('') + '</colgroup>';
-    }
-
-    context.lineContent = `${closeTag}<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%">${colgroup}<tbody>${rowHtml}`;
-  } else {
-    context.lineContent = rowHtml;
   }
+
+  // Empty placeholder rows (e.g. " ␟ ␟ ") contribute nothing visible, but we
+  // still emit the comment wrapper so their stray <br> is swallowed too.
+  if (!isEmptyRow) {
+    const tds = cells.map((cell) => `<td>${_escapeHtml(cell)}</td>`).join('');
+    visible += `<tr>${tds}</tr>`;
+  }
+
+  context.lineContent = `${prefix}${visible}<!--`;
+  _commentOpen = true;
 };
 
 exports.stylesForExport = (hook, padId, cb) => {
