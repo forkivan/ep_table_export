@@ -6,7 +6,7 @@ By default, `ep_data_tables` does not export tables to HTML or DOCX. This plugin
 
 ## Requirements
 
-- `ep_data_tables` must be installed
+- **[ep_data_tables](https://www.npmjs.com/package/ep_data_tables)** must be installed
 
 ## Installation
 
